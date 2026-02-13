@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Catch the Hearts 💘</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #111a33;
+        --text: #eef2ff;
+        --muted: #9aa6c5;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: radial-gradient(
+          1200px 800px at 50% 30%,
+          #16214a 0%,
+          var(--bg) 55%
+        );
+        color: var(--text);
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Arial;
+      }
+      .wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100%;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      /* ✅ Make canvas responsive */
+      canvas {
+        width: min(720px, 95vw);
+        height: auto; /* keeps aspect ratio from canvas width/height attrs */
+        background: linear-gradient(#0e1633, #0b1020);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+        touch-action: none; /* important for touch dragging */
+        user-select: none;
+      }
+
+      .hud {
+        width: min(720px, 95vw);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        background: rgba(17, 26, 51, 0.6);
+        backdrop-filter: blur(10px);
+      }
+      .hud b {
+        font-weight: 700;
+      }
+      .btns {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      button {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 14px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+        max-width: 720px;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 18px;
+      }
+      .card {
+        width: min(560px, 95vw);
+        border-radius: 22px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.1),
+          rgba(255, 255, 255, 0.06)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+        padding: 18px 18px 14px;
+      }
+      .card h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+      }
+      .card p {
+        margin: 0 0 12px;
+        line-height: 1.45;
+        color: rgba(238, 242, 255, 0.92);
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .primary {
+        background: rgba(255, 90, 140, 0.22);
+        border-color: rgba(255, 90, 140, 0.35);
+      }
+      .primary:hover {
+        background: rgba(255, 90, 140, 0.28);
+      }
+      .tiny {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+
+      /* on-screen controls */
+      .mobile-controls {
+        display: none;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 8px;
+      }
+      .pad {
+        display: flex;
+        gap: 10px;
+      }
+      .pad button {
+        width: 64px;
+        height: 54px;
+        font-size: 18px;
+      }
+      @media (max-width: 560px) {
+        .mobile-controls {
+          display: flex;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="hud">
+        <div>
+          <div><b>Score:</b> <span id="score">0</span></div>
+          <div style="font-size: 12px; color: rgba(238, 242, 255, 0.75)">
+            <b>Goal:</b> <span id="goal">20</span> hearts
+          </div>
+        </div>
+        <div class="btns">
+          <button id="startBtn" class="primary">Start / Restart</button>
+          <button id="muteBtn">Sound: On</button>
+        </div>
+      </div>
+
+      <!-- Keep internal resolution fixed for physics -->
+      <canvas id="game" width="720" height="420"></canvas>
+
+      <div class="hint">
+        Move with <b>← →</b> or <b>A and D</b>. On mobile: drag on the canvas or
+        use buttons. Catch the 💗, avoid ☁️. Reach the goal to unlock the
+        Surprise.
+      </div>
+
+      <div class="mobile-controls">
+        <div class="pad">
+          <button id="leftBtn">◀</button>
+          <button id="rightBtn">▶</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <div class="card">
+        <h1>Unlocked 💌</h1>
+        <p id="winMsg">Happy Valentine’s Day Ifeoluwa,❤️</p>
+        <div class="row">
+          <button id="closeBtn">Close</button>
+          <button id="playAgainBtn" class="primary">Play Again</button>
+        </div>
+        <div class="tiny">Made with ❤️ <br /></div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+
+        // ====== CONFIG YOU CAN EDIT ======
+        const TARGET_SCORE = 20; // hearts needed to win
+        const WIN_MESSAGE = `Happy Valentine’s Day ,❤️`;
+
+        const PLAYER_STYLE = "pixel"; // "pixel" | "circle"
+        document.getElementById("goal").textContent = TARGET_SCORE;
+
+        // ====== GAME STATE ======
+        let running = false;
+        let score = 0;
+        let muted = false;
+
+        // simple sound (no external files)
+        const audioCtx = (() => {
+          try {
+            return new (window.AudioContext || window.webkitAudioContext)();
+          } catch {
+            return null;
+          }
+        })();
+
+        function beep(freq = 440, duration = 0.07, type = "sine", gain = 0.05) {
+          if (muted || !audioCtx) return;
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = type;
+          o.frequency.value = freq;
+          g.gain.value = gain;
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.start();
+          o.stop(audioCtx.currentTime + duration);
+        }
+
+        const overlay = document.getElementById("overlay");
+        const winMsgEl = document.getElementById("winMsg");
+        winMsgEl.textContent = WIN_MESSAGE;
+
+        function clamp(v, a, b) {
+          return Math.max(a, Math.min(b, v));
+        }
+        function rand(a, b) {
+          return a + Math.random() * (b - a);
+        }
+
+        const keys = new Set();
+        window.addEventListener("keydown", (e) => {
+          if (["ArrowLeft", "ArrowRight", "a", "d", "A", "D"].includes(e.key))
+            e.preventDefault();
+          keys.add(e.key);
+        });
+        window.addEventListener("keyup", (e) => keys.delete(e.key));
+
+        // mobile buttons
+        const leftBtn = document.getElementById("leftBtn");
+        const rightBtn = document.getElementById("rightBtn");
+
+        const press = (k) => () => keys.add(k);
+        const release = (k) => () => keys.delete(k);
+
+        const bindHold = (btn, key) => {
+          btn.addEventListener("pointerdown", press(key));
+          btn.addEventListener("pointerup", release(key));
+          btn.addEventListener("pointercancel", release(key));
+          btn.addEventListener("pointerleave", release(key));
+        };
+        bindHold(leftBtn, "ArrowLeft");
+        bindHold(rightBtn, "ArrowRight");
+
+        // ✅ Touch/drag on canvas to move player
+        let dragging = false;
+        function canvasToWorldX(clientX) {
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width; // map CSS pixels -> canvas pixels
+          return (clientX - rect.left) * scaleX;
+        }
+
+        canvas.addEventListener("pointerdown", (e) => {
+          dragging = true;
+          canvas.setPointerCapture?.(e.pointerId);
+          const x = canvasToWorldX(e.clientX);
+          // move immediately to finger
+          player.x = clamp(x, 22, canvas.width - 22);
+          // prevent page scroll
+          e.preventDefault();
+        });
+
+        canvas.addEventListener("pointermove", (e) => {
+          if (!dragging) return;
+          const x = canvasToWorldX(e.clientX);
+          player.x = clamp(x, 22, canvas.width - 22);
+          e.preventDefault();
+        });
+
+        function stopDrag(e) {
+          dragging = false;
+          e?.preventDefault?.();
+        }
+        canvas.addEventListener("pointerup", stopDrag);
+        canvas.addEventListener("pointercancel", stopDrag);
+        canvas.addEventListener("pointerleave", stopDrag);
+
+        const player = {
+          x: canvas.width / 2,
+          y: canvas.height - 46,
+          w: 42,
+          h: 42,
+          speed: 360, // px/sec
+          stun: 0, // seconds
+        };
+
+        // Falling items: hearts & clouds
+        const items = [];
+        const MAX_ITEMS = 8;
+        let spawnTimer = 20; // seconds until next spawn (starts with a delay
+
+        function spawn() {
+          const isHeart = Math.random() < 0.3; // more hearts than clouds
+          const size = isHeart ? rand(18, 26) : rand(18, 26);
+          items.push({
+            type: isHeart ? "heart" : "cloud",
+            x: rand(size, canvas.width - size),
+            y: -size,
+            r: size,
+            vy: isHeart ? rand(95, 160) : rand(110, 190),
+            wobble: rand(0, Math.PI * 2),
+          });
+        }
+
+        function reset() {
+          score = 0;
+          document.getElementById("score").textContent = score;
+          player.x = canvas.width / 2;
+          player.stun = 0;
+          items.length = 0;
+          spawnTimer = 0;
+          running = true;
+          overlay.style.display = "none";
+          beep(660, 0.06, "triangle", 0.04);
+        }
+
+        function win() {
+          running = false;
+          overlay.style.display = "flex";
+          beep(784, 0.08, "sine", 0.06);
+          setTimeout(() => beep(988, 0.1, "sine", 0.06), 90);
+          setTimeout(() => beep(1175, 0.12, "sine", 0.06), 200);
+        }
+
+        // ====== DRAWING ======
+        function drawBackground() {
+          // stars
+          ctx.save();
+          ctx.globalAlpha = 0.9;
+          for (let i = 0; i < 70; i++) {
+            const x = (i * 97) % canvas.width;
+            const y = (i * 53) % canvas.height;
+            const tw = (Math.sin(performance.now() / 800 + i * 0.7) + 1) / 2;
+            ctx.globalAlpha = 0.12 + tw * 0.25;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(x, y, 2, 2);
+          }
+          ctx.restore();
+
+          // ground glow
+          const g = ctx.createLinearGradient(
+            0,
+            canvas.height - 90,
+            0,
+            canvas.height,
+          );
+          g.addColorStop(0, "rgba(255,255,255,0)");
+          g.addColorStop(1, "rgba(255,90,140,0.15)");
+          ctx.fillStyle = g;
+          ctx.fillRect(0, canvas.height - 90, canvas.width, 90);
+        }
+
+        function drawPlayer() {
+          if (PLAYER_STYLE === "circle") {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.fillStyle = "rgba(255,255,255,.92)";
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,90,140,.95)";
+            ctx.beginPath();
+            ctx.arc(0, -6, 5, 0, Math.PI * 2);
+            ctx.arc(8, -6, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+          }
+
+          // Pixel-ish sprite (simple blocks)
+          const px = 4; // pixel size
+          const sx = Math.round((player.x - 20) / px) * px;
+          const sy = Math.round((player.y - 20) / px) * px;
+
+          // body
+          ctx.fillStyle = "rgba(255,255,255,.90)";
+          ctx.fillRect(sx, sy, 40, 40);
+
+          // shirt accent
+          ctx.fillStyle = "rgba(255,90,140,.85)";
+          ctx.fillRect(sx + 4, sy + 22, 32, 14);
+
+          // eyes
+          ctx.fillStyle = "rgba(10,15,35,.9)";
+          ctx.fillRect(sx + 10, sy + 10, 4, 4);
+          ctx.fillRect(sx + 26, sy + 10, 4, 4);
+
+          // tiny heart on chest
+          ctx.fillStyle = "rgba(255,255,255,.95)";
+          ctx.fillRect(sx + 18, sy + 26, 4, 4);
+
+          // stun effect
+          if (player.stun > 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            ctx.strokeStyle = "rgba(255,255,255,.9)";
+            ctx.beginPath();
+            ctx.arc(player.x, player.y - 26, 10, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        function drawHeart(x, y, r) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.fillStyle = "rgba(255,90,140,.95)";
+          ctx.beginPath();
+          const s = r / 18;
+          ctx.scale(s, s);
+          ctx.moveTo(0, 6);
+          ctx.bezierCurveTo(0, -6, -18, -6, -18, 6);
+          ctx.bezierCurveTo(-18, 18, 0, 24, 0, 32);
+          ctx.bezierCurveTo(0, 24, 18, 18, 18, 6);
+          ctx.bezierCurveTo(18, -6, 0, -6, 0, 6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        function drawCloud(x, y, r) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.fillStyle = "rgba(210,220,255,.35)";
+          ctx.beginPath();
+          ctx.arc(-r * 0.35, 0, r * 0.45, 0, Math.PI * 2);
+          ctx.arc(0, -r * 0.15, r * 0.55, 0, Math.PI * 2);
+          ctx.arc(r * 0.4, 0, r * 0.4, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.fill();
+
+          // sad face
+          ctx.strokeStyle = "rgba(10,15,35,.55)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(-6, -2, 2, 0, Math.PI * 2);
+          ctx.arc(6, -2, 2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(0, 8, 6, Math.PI * 1.1, Math.PI * 1.9);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawItems() {
+          for (const it of items) {
+            if (it.type === "heart") drawHeart(it.x, it.y, it.r);
+            else drawCloud(it.x, it.y, it.r);
+          }
+        }
+
+        // ====== COLLISIONS ======
+        function hitCircleRect(cx, cy, cr, rx, ry, rw, rh) {
+          const nx = clamp(cx, rx, rx + rw);
+          const ny = clamp(cy, ry, ry + rh);
+          const dx = cx - nx,
+            dy = cy - ny;
+          return dx * dx + dy * dy <= cr * cr;
+        }
+
+        function playerRect() {
+          return {
+            rx: player.x - player.w / 2,
+            ry: player.y - player.h / 2,
+            rw: player.w,
+            rh: player.h,
+          };
+        }
+
+        function addScore(delta) {
+          score += delta;
+          score = Math.max(0, score);
+          document.getElementById("score").textContent = score;
+          if (score >= TARGET_SCORE) win();
+        }
+
+        // ====== LOOP ======
+        let last = performance.now();
+        function frame(now) {
+          const dt = Math.min(0.033, (now - last) / 1000);
+          last = now;
+
+          if (running) {
+            spawnTimer -= dt;
+            const desired = MAX_ITEMS;
+            if (items.length < desired && spawnTimer <= 0) {
+              spawn();
+              spawnTimer = rand(0.25, 0.55);
+            }
+
+            if (player.stun > 0) player.stun = Math.max(0, player.stun - dt);
+            const moveAllowed = player.stun <= 0;
+
+            // If dragging, we already set player.x directly
+            if (!dragging) {
+              let dir = 0;
+              if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A"))
+                dir -= 1;
+              if (keys.has("ArrowRight") || keys.has("d") || keys.has("D"))
+                dir += 1;
+
+              if (moveAllowed) player.x += dir * player.speed * dt;
+              player.x = clamp(player.x, 22, canvas.width - 22);
+            }
+
+            for (const it of items) {
+              it.wobble += dt * 2.2;
+              it.x +=
+                Math.sin(it.wobble) * (it.type === "heart" ? 18 : 10) * dt;
+              it.y += it.vy * dt;
+            }
+
+            const { rx, ry, rw, rh } = playerRect();
+            for (let i = items.length - 1; i >= 0; i--) {
+              const it = items[i];
+
+              if (it.y - it.r > canvas.height + 10) {
+                items.splice(i, 1);
+                continue;
+              }
+
+              if (hitCircleRect(it.x, it.y, it.r, rx, ry, rw, rh)) {
+                items.splice(i, 1);
+                if (it.type === "heart") {
+                  addScore(1);
+                  beep(880, 0.05, "triangle", 0.05);
+                } else {
+                  addScore(-1);
+                  player.stun = 0.45;
+                  beep(180, 0.07, "sawtooth", 0.05);
+                }
+              }
+            }
+          }
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          drawBackground();
+          drawItems();
+          drawPlayer();
+
+          if (!running) {
+            ctx.save();
+            ctx.fillStyle = "rgba(238,242,255,.75)";
+            ctx.font = "14px system-ui";
+            ctx.fillText("Press Start / Restart to play", 16, 24);
+            ctx.restore();
+          }
+
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+
+        // ====== UI BUTTONS ======
+        document
+          .getElementById("startBtn")
+          .addEventListener("click", async () => {
+            if (audioCtx && audioCtx.state === "suspended") {
+              try {
+                await audioCtx.resume();
+              } catch {}
+            }
+            reset();
+          });
+
+        document.getElementById("muteBtn").addEventListener("click", () => {
+          muted = !muted;
+          document.getElementById("muteBtn").textContent = `Sound: ${
+            muted ? "Off" : "On"
+          }`;
+          beep(520, 0.05, "sine", 0.03);
+        });
+
+        document
+          .getElementById("closeBtn")
+          .addEventListener("click", () => (overlay.style.display = "none"));
+        document
+          .getElementById("playAgainBtn")
+          .addEventListener("click", () => reset());
+      })();
+    </script>
+  </body>
+</html>
